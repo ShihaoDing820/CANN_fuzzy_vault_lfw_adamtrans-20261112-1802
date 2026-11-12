@@ -45,6 +45,23 @@ Vault 中包含 96 个 genuine 点和 96 个 chaff 点，恢复阈值为 8 个�
 ./run-tests.sh /path/to/embeddings.csv /path/to/lfw_issame.csv
 ```
 
+对全部 6000 对 LFW 样本进行评估：
+
+```bash
+./run-all.sh
+```
+
+也可以指定数据位置：
+
+```bash
+./run-all.sh /path/to/embeddings.csv /path/to/lfw_issame.csv
+```
+
+`run-tests.sh` 保留原来的 5 对正样本 + 5 对负样本快速回归测试；
+`run-all.sh` 编译同一套 Vault 算子的全量模式，处理全部 6000 对并输出
+TP/TN/FP/FN、GMR、FMR、FNMR、平均 token 重合数和总耗时。两种模式
+均由固定 20 个 CANN worker 循环处理样本，适合当前 CPU 仿真环境。
+
 特征必须是 `12000 × 512` CSV，每两行一对，并与 6000 行标签顺序一致。150 MB ArcFace 文件不上传到仓库。
 
 ## 当前测试结果
@@ -57,6 +74,16 @@ Vault 中包含 96 个 genuine 点和 96 个 chaff 点，恢复阈值为 8 个�
 [RESULT] CANN/Host pipeline agreement: 10/10
 [RESULT] Biometric classification: 10/10
 [PASS] Fuzzy vault LFW CANN pipeline completed.
+```
+
+全量模式的实测结果记录在下方；如更换特征或参数，请以新一次运行输出为准：
+
+```text
+[FULL_RESULT] TP=2684 TN=2997 FP=3 FN=316
+[FULL_RESULT] accuracy=0.946833 GMR=0.894667 FMR=0.001000 FNMR=0.105333
+[FULL_RESULT] average_positive_token_overlap=14.002000 average_negative_token_overlap=1.861333
+[FULL_RESULT] CANN/Host pipeline agreement=6000/6000 elapsed_seconds=1.915156
+[PASS] Full 6000-pair fuzzy vault CANN evaluation completed.
 ```
 
 分类准确率只作为观察值；CANN 与独立 Host 参考实现不一致才是测试失败条件。
@@ -75,7 +102,7 @@ Vault 中包含 96 个 genuine 点和 96 个 chaff 点，恢复阈值为 8 个�
 ## 局限
 
 - CANN CPU 仿真不能代表真实 NPU 性能。
-- 10 对样本仅验证端到端路径，不是正式 LFW 准确率。
+- 10 对快速样本用于端到端回归；6000 对全量模式用于遍历数据集和输出统计，仍不等同于规范的交叉验证论文指标。
 - 16-bit 精确 token 是可运行原型；正式设计应评估量化参数、熵和 token 碰撞。
 - 为避免本原型的随机 chaff 干扰基础流程，chaff `x` 使用与生物 token 不相交的数值域。这不具备生产级 Vault 隐蔽性，正式方案必须让 chaff 与 genuine 点不可区分，并使用容错多项式恢复。
 - 阈值当前由整份数据统计得到，正式评估必须使用训练折/测试折隔离。
